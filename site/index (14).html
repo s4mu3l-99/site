@@ -1,0 +1,1868 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Número por Extenso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:        #131210;
+    --grain:     rgba(255,177,102,0.10);
+    --device:    #29282a;
+    --device-hi: #38373a;
+    --device-lo: #1b1a1b;
+    --screen:    #171310;
+    --screen-edge: #0d0b09;
+    --led:       #ffb166;
+    --led-dim:   rgba(255,177,102,0.35);
+    --key:       #333234;
+    --key-hi:    #403f42;
+    --key-text:  #e9e5df;
+    --accent:    #ffb166;
+    --accent-text: #201a12;
+    --clear:     #524341;
+    --paper:     #ece7dd;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+  html,body{ height:100%; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:32px 16px;
+    background:var(--bg);
+    font-family:'Space Grotesk', sans-serif;
+    color:var(--paper);
+    position:relative;
+    overflow-x:hidden;
+  }
+
+  /* ---------- reactive background ---------- */
+
+  .bg-grid{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    pointer-events:none;
+    opacity:0.35;
+    background-image:
+      linear-gradient(rgba(255,177,102,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,177,102,0.07) 1px, transparent 1px);
+    background-size:44px 44px;
+    mask-image:radial-gradient(circle at 50% 30%, #000 0%, transparent 75%);
+    -webkit-mask-image:radial-gradient(circle at 50% 30%, #000 0%, transparent 75%);
+  }
+
+  .bg-grain{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    pointer-events:none;
+    opacity:0.5;
+    background-image:
+      radial-gradient(circle, rgba(255,177,102,0.16) 1px, transparent 1.4px);
+    background-size:26px 26px;
+  }
+
+  .bg-light{
+    position:fixed;
+    top:50%; left:50%;
+    width:900px;
+    height:900px;
+    margin-left:-450px;
+    margin-top:-450px;
+    z-index:0;
+    pointer-events:none;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(255,180,110,0.28) 0%, rgba(255,150,90,0.10) 32%, transparent 62%);
+    mix-blend-mode:screen;
+    will-change:transform;
+    transform:translate3d(0,0,0);
+  }
+  .bg-light::after{
+    content:'';
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(255,180,110,0.18) 0%, transparent 55%);
+    animation:breathe 6s ease-in-out infinite;
+  }
+  @keyframes breathe{
+    0%,100%{ transform:scale(1); opacity:0.7; }
+    50%{ transform:scale(1.12); opacity:1; }
+  }
+
+  .stage{
+    position:relative;
+    z-index:1;
+    width:100%;
+    max-width:360px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
+  }
+  .stage:not(.hidden-app){ animation:fade-up .6s cubic-bezier(.2,.9,.3,1.1); }
+
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:0.22em;
+    text-transform:uppercase;
+    color:rgba(236,231,221,0.55);
+    text-align:center;
+  }
+
+  /* ---------- device ---------- */
+
+  .device{
+    width:100%;
+    background:linear-gradient(155deg, var(--device-hi), var(--device) 40%, var(--device-lo));
+    border-radius:22px;
+    padding:16px 16px 20px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.06) inset,
+      0 30px 60px -24px rgba(0,0,0,0.7),
+      0 0 0 1px rgba(0,0,0,0.4);
+  }
+
+  .screen{
+    position:relative;
+    overflow:hidden;
+    background:linear-gradient(175deg, var(--screen), var(--screen-edge));
+    border-radius:12px;
+    padding:16px 16px 14px;
+    box-shadow:inset 0 2px 10px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(0,0,0,0.5);
+    min-height:110px;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    gap:8px;
+  }
+  .screen::before{
+    content:'';
+    position:absolute;
+    left:0; right:0;
+    height:26px;
+    top:-26px;
+    background:linear-gradient(rgba(255,177,102,0.16), transparent);
+    animation:scan 5s linear infinite;
+    pointer-events:none;
+  }
+  @keyframes scan{
+    0%{ top:-26px; }
+    100%{ top:100%; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .screen::before{ display:none; }
+  }
+
+  .screen-number{
+    font-family:'Share Tech Mono', monospace;
+    font-size:40px;
+    letter-spacing:0.04em;
+    text-align:right;
+    color:var(--led);
+    text-shadow:0 0 12px var(--led-dim), 0 0 2px var(--led-dim);
+    line-height:1;
+    word-break:break-all;
+    transition:transform .15s ease;
+  }
+  .screen-number.pulse{
+    animation:glow-pulse .6s ease;
+  }
+
+  .screen-extenso{
+    font-family:'Share Tech Mono', monospace;
+    font-size:13px;
+    text-align:right;
+    color:rgba(255,177,102,0.75);
+    text-shadow:0 0 8px rgba(255,177,102,0.25);
+    line-height:1.4;
+    min-height:18px;
+  }
+
+  .screen-extenso .word{
+    display:inline-block;
+    opacity:0;
+    animation:led-in .3s ease forwards;
+  }
+  @keyframes led-in{ to{ opacity:1; } }
+
+  .stub{
+    margin-top:10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 2px;
+  }
+  .stub-label{
+    font-size:9.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:rgba(236,231,221,0.4);
+  }
+  .dots{ display:flex; gap:6px; }
+  .dot{
+    width:6px; height:6px;
+    border-radius:50%;
+    background:rgba(255,177,102,0.25);
+    transition:background .25s ease, box-shadow .25s ease;
+  }
+  .dot.used{
+    background:var(--led);
+    box-shadow:0 0 6px var(--led-dim);
+    animation:dot-pop .35s ease;
+  }
+
+  /* ---------- keypad ---------- */
+
+  .keypad{
+    margin-top:14px;
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:9px;
+  }
+
+  .key{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:500;
+    font-size:19px;
+    color:var(--key-text);
+    background:linear-gradient(175deg, var(--key-hi), var(--key));
+    border:none;
+    border-radius:11px;
+    padding:15px 0;
+    cursor:pointer;
+    box-shadow:0 2px 0 rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition:transform .08s ease, box-shadow .08s ease, background .2s ease;
+    opacity:0;
+    animation:pop-in .35s ease forwards;
+  }
+  .keypad .key:nth-child(1){ animation-delay:.04s; }
+  .keypad .key:nth-child(2){ animation-delay:.08s; }
+  .keypad .key:nth-child(3){ animation-delay:.12s; }
+  .keypad .key:nth-child(4){ animation-delay:.16s; }
+  .keypad .key:nth-child(5){ animation-delay:.20s; }
+  .keypad .key:nth-child(6){ animation-delay:.24s; }
+  .keypad .key:nth-child(7){ animation-delay:.28s; }
+  .keypad .key:nth-child(8){ animation-delay:.32s; }
+  .keypad .key:nth-child(9){ animation-delay:.36s; }
+  .keypad .key:nth-child(10){ animation-delay:.40s; }
+  .keypad .key:nth-child(11){ animation-delay:.42s; }
+  .keypad .key:nth-child(12){ animation-delay:.46s; }
+  .key:hover{ background:linear-gradient(175deg, #46454a, var(--key-hi)); }
+  .key:active{
+    transform:translateY(2px);
+    box-shadow:0 0 0 rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .key:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .key.zero{ grid-column:span 1; }
+
+  .key.clear{
+    background:linear-gradient(175deg, #5c4a47, var(--clear));
+    font-size:14px;
+    letter-spacing:0.06em;
+  }
+  .key.clear:hover{ background:linear-gradient(175deg, #6a5451, #5c4a47); }
+
+  .key.convert{
+    grid-column:span 3;
+    margin-top:2px;
+    background:linear-gradient(175deg, #ffc384, var(--accent));
+    color:var(--accent-text);
+    font-weight:600;
+    font-size:15px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    padding:16px 0;
+    box-shadow:0 3px 0 #b87a3a, inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .key.convert:hover{ background:linear-gradient(175deg, #ffcd97, #ffb166); }
+  .key.convert:active{ box-shadow:0 0 0 #b87a3a, inset 0 1px 0 rgba(255,255,255,0.35); }
+  .key.convert:disabled{ opacity:0.55; cursor:wait; }
+
+  /* ---------- premium modal ---------- */
+
+  .backdrop{
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:20;
+    background:rgba(8,7,6,0.72);
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .backdrop.show{ display:flex; }
+
+  .alert-card{
+    width:100%;
+    max-width:300px;
+    background:linear-gradient(175deg, var(--device-hi), var(--device));
+    border-radius:16px;
+    padding:20px 18px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.7);
+    animation:card-in .3s cubic-bezier(.2,.9,.3,1.25);
+  }
+  @keyframes card-in{
+    from{ opacity:0; transform:translateY(10px) scale(0.97); }
+    to{ opacity:1; transform:translateY(0) scale(1); }
+  }
+
+  @keyframes fade-up{
+    from{ opacity:0; transform:translateY(18px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  @keyframes shake{
+    10%,90%{ transform:translateX(-1px); }
+    20%,80%{ transform:translateX(2px); }
+    30%,50%,70%{ transform:translateX(-4px); }
+    40%,60%{ transform:translateX(4px); }
+  }
+
+  @keyframes glow-pulse{
+    0%,100%{ text-shadow:0 0 12px var(--led-dim), 0 0 2px var(--led-dim); }
+    50%{ text-shadow:0 0 22px var(--led), 0 0 6px var(--led-dim); }
+  }
+
+  @keyframes pop-in{
+    from{ opacity:0; transform:translateY(10px) scale(0.92); }
+    to{ opacity:1; transform:translateY(0) scale(1); }
+  }
+
+  @keyframes dot-pop{
+    0%{ transform:scale(1); }
+    40%{ transform:scale(1.5); }
+    100%{ transform:scale(1); }
+  }
+
+  .alert-screen{
+    background:linear-gradient(175deg, var(--screen), var(--screen-edge));
+    border-radius:10px;
+    padding:14px 14px 12px;
+    box-shadow:inset 0 2px 8px rgba(0,0,0,0.6);
+    margin-bottom:14px;
+  }
+  .alert-tag{
+    font-family:'Share Tech Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:#ff8a6b;
+    text-shadow:0 0 8px rgba(255,138,107,0.4);
+  }
+  .alert-screen h2{
+    font-family:'Share Tech Mono', monospace;
+    font-size:16px;
+    color:var(--led);
+    text-shadow:0 0 10px var(--led-dim);
+    margin:6px 0 8px;
+  }
+  .alert-screen p{
+    font-size:12px;
+    color:rgba(255,177,102,0.7);
+    line-height:1.5;
+    margin:0;
+  }
+
+  .price{
+    text-align:center;
+    font-family:'Share Tech Mono', monospace;
+    font-size:20px;
+    color:var(--paper);
+    margin-bottom:14px;
+  }
+  .price span{ font-size:11px; color:rgba(236,231,221,0.5); }
+
+  .plan{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:rgba(0,0,0,0.18);
+    border:1px solid rgba(255,177,102,0.18);
+    border-radius:10px;
+    padding:10px 12px;
+    margin-bottom:8px;
+  }
+  .plan-nome{
+    font-size:13px;
+    font-weight:600;
+    color:var(--paper);
+  }
+  .plan-desc{
+    font-size:11px;
+    color:rgba(236,231,221,0.5);
+    margin-top:2px;
+  }
+  .plan-preco{
+    font-family:'Share Tech Mono', monospace;
+    font-size:15px;
+    color:var(--led);
+    text-align:right;
+  }
+  .plan-preco span{
+    display:block;
+    font-size:9px;
+    color:rgba(255,177,102,0.5);
+  }
+
+  .plan-nota{
+    display:none;
+    font-size:11px;
+    color:#ff8a6b;
+    margin:-2px 0 10px;
+    line-height:1.4;
+  }
+
+  .btn-secondary-full{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:13px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    background:transparent;
+    color:var(--led);
+    border:1.5px solid rgba(255,177,102,0.4);
+    border-radius:999px;
+    padding:12px;
+    width:100%;
+    cursor:pointer;
+  }
+  .btn-secondary-full:hover{ border-color:var(--led); }
+  .btn-secondary-full:disabled{ opacity:0.45; cursor:not-allowed; border-color:rgba(255,177,102,0.18); }
+  .btn-secondary-full:disabled:hover{ border-color:rgba(255,177,102,0.18); }
+  .btn-secondary-full:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .alert-actions{ display:flex; flex-direction:column; gap:8px; }
+
+  .alert-card.premium .alert-screen{
+    box-shadow:inset 0 2px 8px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,90,60,0.25);
+  }
+  .premium-tag{
+    color:#ff5a3c !important;
+    text-shadow:0 0 8px rgba(255,90,60,0.4) !important;
+  }
+  .alert-card.premium .plan-preco{ color:#ff8a6b; }
+  .alert-card.premium .plan{ border-color:rgba(255,90,60,0.22); }
+
+  /* ---------- LOGIN ---------- */
+
+  .hidden-app{ display:none !important; }
+
+  .login-gate{
+    position:fixed;
+    inset:0;
+    z-index:40;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+
+  .login-card{
+    position:relative;
+    z-index:1;
+    width:100%;
+    max-width:340px;
+    background:linear-gradient(155deg, var(--device-hi), var(--device) 40%, var(--device-lo));
+    border-radius:22px;
+    padding:22px 20px 20px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.06) inset,
+      0 30px 60px -24px rgba(0,0,0,0.7),
+      0 0 0 1px rgba(0,0,0,0.4);
+    animation:fade-up .55s cubic-bezier(.2,.9,.3,1.1);
+  }
+
+  .login-title{
+    font-family:'Share Tech Mono', monospace;
+    font-size:15px;
+    letter-spacing:0.06em;
+    color:var(--led);
+    text-shadow:0 0 8px var(--led-dim);
+    margin-bottom:4px;
+  }
+  .login-sub{
+    font-size:11px;
+    color:rgba(236,231,221,0.45);
+    margin-bottom:16px;
+  }
+
+  .login-field{ margin-bottom:12px; }
+  .login-label{
+    display:block;
+    font-size:10px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:rgba(236,231,221,0.5);
+    margin-bottom:6px;
+  }
+  .login-input-wrap{ position:relative; }
+  .login-input{
+    width:100%;
+    background:linear-gradient(175deg, var(--screen), var(--screen-edge));
+    border:1px solid rgba(255,177,102,0.22);
+    border-radius:10px;
+    padding:11px 40px 11px 12px;
+    font-family:'Space Grotesk', sans-serif;
+    font-size:14px;
+    color:var(--paper);
+    outline:none;
+  }
+  .login-input::placeholder{ color:rgba(236,231,221,0.25); }
+  .login-input:focus{ border-color:var(--accent); }
+
+  .toggle-senha{
+    position:absolute;
+    right:8px;
+    top:50%;
+    transform:translateY(-50%);
+    background:transparent;
+    border:none;
+    color:rgba(236,231,221,0.5);
+    font-size:15px;
+    cursor:pointer;
+    padding:4px;
+  }
+  .toggle-senha:hover{ color:var(--paper); }
+  .toggle-senha:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .regras{
+    list-style:none;
+    margin:2px 0 14px;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+  }
+  .regras li{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:11px;
+    color:rgba(236,231,221,0.4);
+    transition:color .2s ease;
+  }
+  .regras li::before{
+    content:"○";
+    font-size:9px;
+    color:rgba(236,231,221,0.3);
+    transition:color .2s ease;
+  }
+  .regras li.ok{ color:rgba(236,231,221,0.85); }
+  .regras li.ok::before{
+    content:"●";
+    color:var(--led);
+    text-shadow:0 0 6px var(--led-dim);
+  }
+
+  .login-erro{
+    display:none;
+    font-size:11.5px;
+    color:#ff8a6b;
+    background:rgba(255,90,60,0.08);
+    border:1px solid rgba(255,90,60,0.25);
+    border-radius:8px;
+    padding:8px 10px;
+    margin-bottom:12px;
+    line-height:1.4;
+  }
+  .login-erro.show{ display:block; animation:shake .4s ease; }
+
+  .login-btn{
+    width:100%;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:13px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    background:linear-gradient(175deg, #ffc384, var(--accent));
+    color:var(--accent-text);
+    border:none;
+    border-radius:999px;
+    padding:13px 0;
+    cursor:pointer;
+    box-shadow:0 3px 0 #b87a3a, inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .login-btn:hover{ background:linear-gradient(175deg, #ffcd97, #ffb166); }
+  .login-btn:active{ box-shadow:0 0 0 #b87a3a; transform:translateY(3px); }
+  .login-btn:focus-visible{ outline:2px solid var(--paper); outline-offset:3px; }
+
+  .btn-primary{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:13px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    background:linear-gradient(175deg, #ffc384, var(--accent));
+    color:var(--accent-text);
+    border:none;
+    border-radius:999px;
+    padding:12px;
+    cursor:pointer;
+    box-shadow:0 3px 0 #b87a3a;
+  }
+  .btn-primary:active{ box-shadow:0 0 0 #b87a3a; transform:translateY(3px); }
+  .btn-primary:focus-visible{ outline:2px solid var(--paper); outline-offset:3px; }
+
+  .btn-ghost{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:12px;
+    background:transparent;
+    color:rgba(236,231,221,0.55);
+    border:none;
+    cursor:pointer;
+    padding:6px;
+    text-decoration:underline;
+  }
+  .btn-ghost:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* ---------- Voucher ---------- */
+  .voucher-row{
+    display:flex;
+    gap:6px;
+    margin-bottom:8px;
+  }
+  .voucher-input{
+    flex:1;
+    background:linear-gradient(175deg, var(--screen), var(--screen-edge));
+    border:1px solid rgba(255,177,102,0.22);
+    border-radius:8px;
+    padding:8px 10px;
+    font-family:'Space Grotesk', sans-serif;
+    font-size:13px;
+    color:var(--paper);
+    outline:none;
+  }
+  .voucher-input:focus{ border-color:var(--accent); }
+  .voucher-btn{
+    background:linear-gradient(175deg, #ffc384, var(--accent));
+    border:none;
+    border-radius:8px;
+    padding:8px 14px;
+    font-weight:600;
+    color:var(--accent-text);
+    cursor:pointer;
+  }
+  .voucher-erro{
+    font-size:11px;
+    color:#ff8a6b;
+    margin:-4px 0 10px;
+    min-height:18px;
+  }
+
+  /* ---------- AD OVERLAY ---------- */
+  #adOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: white;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    font-family: 'Space Grotesk', sans-serif;
+    color: #222;
+  }
+  #adOverlay.show { display: flex; }
+  #adOverlay .ad-close {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    font-size: 16px;
+    cursor: pointer;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    transition: color .2s;
+    background: rgba(0,0,0,0.25);
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  #adOverlay .ad-close:hover { color: #ddd; }
+  #adOverlay .ad-content {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    user-select: none;
+  }
+  #adOverlay .ad-bg{
+    position: absolute;
+    inset: -30px;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(28px) brightness(0.6) saturate(1.15);
+    transform: scale(1.12);
+  }
+  #adOverlay .ad-fg{
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    cursor: pointer;
+  }
+  #adOverlay .ad-content img{
+    max-width: 100%;
+    max-height: 82vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 24px 60px -12px rgba(0,0,0,0.55);
+  }
+  #adOverlay .ad-timer {
+    position: absolute;
+    bottom: 20px;
+    right: 24px;
+    margin-top: 0;
+    font-size: 14px;
+    color: #fff;
+    background: rgba(0,0,0,0.35);
+    padding: 4px 10px;
+    border-radius: 999px;
+    z-index: 2;
+  }
+
+  /* ---------- link "conheça nossos planos" ---------- */
+  .link-planos{
+    margin-top:2px;
+    font-family:'Space Grotesk', sans-serif;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.03em;
+    background:transparent;
+    color:var(--led);
+    border:1.5px dashed rgba(255,177,102,0.4);
+    border-radius:999px;
+    padding:9px 18px;
+    cursor:pointer;
+    transition:border-color .2s ease, background .2s ease, transform .15s ease;
+  }
+  .link-planos:hover{
+    border-color:var(--led);
+    background:rgba(255,177,102,0.08);
+    transform:translateY(-1px);
+  }
+  .link-planos:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .top-planos-btn{
+    position:fixed;
+    top:16px;
+    right:16px;
+    z-index:15;
+    margin-top:0;
+  }
+
+  .top-perfil{
+    position:fixed;
+    top:16px;
+    left:16px;
+    z-index:15;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    max-width:calc(100vw - 200px);
+  }
+  .perfil-bolinha{
+    flex:none;
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    background:linear-gradient(155deg, #ffc384, var(--accent));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size:14px;
+    color:var(--accent-text);
+    box-shadow:0 4px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .perfil-nome{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--paper);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    text-shadow:0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  /* ---------- plano anual ---------- */
+  .preco-riscado{
+    font-size:12px;
+    color:rgba(236,231,221,0.4);
+    text-decoration:line-through;
+    margin-right:6px;
+  }
+  .alert-card.anual-card .alert-screen{
+    box-shadow:inset 0 2px 8px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,90,60,0.25);
+  }
+  .anual-tag-screen{
+    color:#ff5a3c !important;
+    text-shadow:0 0 8px rgba(255,90,60,0.4) !important;
+  }
+  .alert-card.anual-card .plan-preco{ color:#ff8a6b; }
+  .alert-card.anual-card .plan{ border-color:rgba(255,90,60,0.22); }
+
+  /* ---------- conheça nossos planos (comparação) ---------- */
+  #modalPlanos.show{
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+  }
+
+  .planos-card{
+    position:relative;
+    width:100%;
+    max-width:340px;
+    max-height:88vh;
+    overflow-y:auto;
+    background:linear-gradient(175deg, var(--device-hi), var(--device));
+    border-radius:18px;
+    padding:24px 18px 20px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.7);
+    animation:card-in .3s cubic-bezier(.2,.9,.3,1.25);
+  }
+
+  .planos-titulo{
+    font-family:'Share Tech Mono', monospace;
+    font-size:16px;
+    color:var(--led);
+    text-shadow:0 0 8px var(--led-dim);
+    text-align:center;
+    margin:4px 0 16px;
+  }
+
+  .planos-fechar{
+    position:absolute;
+    top:14px; right:14px;
+    background:transparent;
+    border:none;
+    color:rgba(236,231,221,0.5);
+    font-size:16px;
+    line-height:1;
+    cursor:pointer;
+    padding:4px;
+  }
+  .planos-fechar:hover{ color:var(--paper); }
+  .planos-fechar:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .planos-grid{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  .plano-item{
+    position:relative;
+    background:rgba(0,0,0,0.18);
+    border:1.5px solid rgba(255,177,102,0.18);
+    border-radius:14px;
+    padding:16px 14px;
+    cursor:pointer;
+    transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  .plano-item:hover{
+    transform:translateY(-3px) scale(1.015);
+    border-color:rgba(255,177,102,0.45);
+    box-shadow:0 12px 22px -10px rgba(0,0,0,0.55);
+  }
+  .plano-item.selecionado{
+    border-color:var(--led);
+    box-shadow:0 0 0 2px var(--led-dim), 0 0 18px rgba(255,177,102,0.35);
+  }
+  .plano-item.anual:hover{ border-color:#ff8a6b; }
+  .plano-item.anual.selecionado{
+    border-color:#ff5a3c;
+    box-shadow:0 0 0 2px rgba(255,90,60,0.35), 0 0 18px rgba(255,90,60,0.35);
+  }
+
+  .plano-item-tag{
+    display:inline-block;
+    font-size:9.5px;
+    letter-spacing:0.07em;
+    text-transform:uppercase;
+    color:var(--accent-text);
+    background:var(--accent);
+    border-radius:999px;
+    padding:3px 9px;
+    margin-bottom:8px;
+  }
+  .plano-item-tag.anual-tag{ background:#ff8a6b; }
+
+  .plano-item-nome{
+    font-size:14px;
+    font-weight:600;
+    color:var(--paper);
+    margin-bottom:2px;
+  }
+  .plano-item-preco{
+    font-family:'Share Tech Mono', monospace;
+    font-size:17px;
+    color:var(--led);
+    margin-bottom:10px;
+  }
+  .plano-item-preco span{ font-size:10px; color:rgba(236,231,221,0.5); }
+
+  .plano-beneficios{
+    list-style:none;
+    margin:0 0 12px;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+  }
+  .plano-beneficios li{
+    font-size:11.5px;
+    color:rgba(236,231,221,0.8);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .plano-beneficios li::before{
+    content:"✓";
+    color:var(--led);
+    font-weight:700;
+  }
+  .plano-beneficios li.off{ color:rgba(236,231,221,0.32); }
+  .plano-beneficios li.off::before{
+    content:"✕";
+    color:rgba(236,231,221,0.28);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .screen-extenso .word{ animation:none; opacity:1; }
+    .alert-card{ animation:none; }
+    .bg-light{ transition:none; animation:none; }
+    .bg-light::after{ animation:none; }
+    .login-card, .stage, .key, .login-erro.show, .screen-number.pulse, .dot.used{ animation:none !important; opacity:1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-grain"></div>
+<div class="bg-light" id="bgLight"></div>
+
+<!-- LOGIN -->
+<div class="login-gate" id="loginGate">
+  <div class="login-card">
+    <div class="login-title">Acesso ao conversor</div>
+    <div class="login-sub">Crie sua conta para continuar</div>
+
+    <div class="login-field">
+      <label class="login-label" for="loginNome">Nome</label>
+      <input class="login-input" id="loginNome" type="text" placeholder="Seu nome" autocomplete="name">
+    </div>
+
+    <div class="login-field">
+      <label class="login-label" for="loginSenha">Senha</label>
+      <div class="login-input-wrap">
+        <input class="login-input" id="loginSenha" type="password" placeholder="Crie uma senha" autocomplete="new-password">
+        <button type="button" class="toggle-senha" id="toggleSenha" aria-label="Mostrar senha">👁</button>
+      </div>
+    </div>
+
+    <ul class="regras">
+      <li id="regra-tamanho">8 caracteres</li>
+      <li id="regra-maiuscula">1 letra maiúscula</li>
+      <li id="regra-numero">1 número</li>
+      <li id="regra-especial">1 caractere especial</li>
+    </ul>
+
+    <p class="login-erro" id="loginErro"></p>
+
+    <button class="login-btn" id="loginBtn">Criar conta e entrar</button>
+  </div>
+</div>
+
+<div class="stage hidden-app" id="app">
+  <div class="top-perfil" id="topPerfil">
+    <span class="perfil-bolinha" id="perfilBolinha"></span>
+    <span class="perfil-nome" id="perfilNome"></span>
+  </div>
+
+  <button class="link-planos top-planos-btn" id="btnConhecaPlanos">✨ Conheça nossos planos</button>
+
+  <p class="eyebrow">Número por Extenso</p>
+
+  <div class="device">
+    <div class="screen">
+      <div class="screen-number" id="screenNumber">0</div>
+      <div class="screen-extenso" id="screenExtenso"></div>
+    </div>
+
+    <div class="stub">
+      <span class="stub-label">Grátis hoje</span>
+      <div class="dots" id="dots">
+        <span class="dot" data-i="0"></span>
+        <span class="dot" data-i="1"></span>
+        <span class="dot" data-i="2"></span>
+      </div>
+    </div>
+
+    <div class="keypad">
+      <button class="key" data-d="7">7</button>
+      <button class="key" data-d="8">8</button>
+      <button class="key" data-d="9">9</button>
+      <button class="key" data-d="4">4</button>
+      <button class="key" data-d="5">5</button>
+      <button class="key" data-d="6">6</button>
+      <button class="key" data-d="1">1</button>
+      <button class="key" data-d="2">2</button>
+      <button class="key" data-d="3">3</button>
+      <button class="key clear" id="clearBtn">AC</button>
+      <button class="key zero" data-d="0">0</button>
+      <button class="key convert" id="convertBtn">Converter</button>
+    </div>
+  </div>
+</div>
+
+<!-- BALÃO DE OPÇÕES RÁPIDAS -->
+<div id="modalOpcoes" class="backdrop" role="dialog" aria-modal="true" aria-labelledby="opcoes-title">
+  <div class="alert-card">
+    <div class="alert-screen">
+      <div class="alert-tag">Aviso</div>
+      <h2 id="opcoes-title">Precisa converter agora?</h2>
+      <p id="opcoes-texto">Suas conversões de hoje acabaram para o seu plano.</p>
+    </div>
+
+    <div class="alert-actions">
+      <button class="btn-secondary-full" id="btnAnuncio">▶ Assistir anúncio (+1 grátis)</button>
+      <button class="btn-secondary-full" onclick="pagarAvulso()">Pagar R$ 1,99 (só essa)</button>
+      <button class="btn-primary" onclick="verPlanos()">Ver planos mensais</button>
+      <button class="btn-ghost" onclick="fecharOpcoes()">Agora não</button>
+    </div>
+  </div>
+</div>
+
+<!-- BALÃO BÁSICO -->
+<div id="modalBasico" class="backdrop" role="dialog" aria-modal="true" aria-labelledby="basico-title">
+  <div class="alert-card basico">
+    <div class="alert-screen">
+      <div class="alert-tag">Aviso</div>
+      <h2 id="basico-title">Esse número passa de 99</h2>
+      <p>Suas conversões grátis acabaram para esse número. O Básico também vai só até 99 — para números maiores, é preciso o Premium.</p>
+    </div>
+
+    <div class="plan">
+      <div class="plan-info">
+        <div class="plan-nome">Plano Básico</div>
+        <div class="plan-desc">Números até 99 • 5 conversões/dia</div>
+      </div>
+      <div class="plan-preco">R$ 5,99<span>/mês</span></div>
+    </div>
+    <p class="plan-nota" id="basicoNota">Esse número passa de 99 — o Básico não cobre. Veja o Premium.</p>
+
+    <div class="voucher-row">
+      <input type="text" id="valeBasico" class="voucher-input" maxlength="10" placeholder="Vale-presente" aria-label="Código do vale-presente Básico">
+      <button class="voucher-btn" onclick="resgatarVale('basico')">Resgatar</button>
+    </div>
+    <p class="voucher-erro" id="valeBasicoErro"></p>
+
+    <div class="alert-actions">
+      <button class="btn-secondary-full" onclick="comprar('Básico')">Assinar Básico</button>
+      <button class="btn-ghost" onclick="fecharBasico()">Agora não</button>
+    </div>
+  </div>
+</div>
+
+<!-- BALÃO PREMIUM -->
+<div id="modalPremium" class="backdrop" role="dialog" aria-modal="true" aria-labelledby="premium-title">
+  <div class="alert-card premium">
+    <div class="alert-screen premium-screen">
+      <div class="alert-tag premium-tag">Acima de 99</div>
+      <h2 id="premium-title">Esse número precisa do Premium</h2>
+      <p>O Básico vai até 99. O Premium libera números até 250 (com a extensão, até 999).</p>
+    </div>
+
+    <div class="plan">
+      <div class="plan-info">
+        <div class="plan-nome">Premium</div>
+        <div class="plan-desc">Números até 250 • 10 conversões/dia • mais rápido</div>
+      </div>
+      <div class="plan-preco">R$ 9,99<span>/mês</span></div>
+    </div>
+
+    <div class="voucher-row">
+      <input type="text" id="valePremium" class="voucher-input" maxlength="10" placeholder="Vale-presente" aria-label="Código do vale-presente Premium">
+      <button class="voucher-btn" onclick="resgatarVale('premium')">Resgatar</button>
+    </div>
+    <p class="voucher-erro" id="valePremiumErro"></p>
+
+    <div class="alert-actions">
+      <button class="btn-primary" onclick="comprar('Premium')">Assinar Premium</button>
+      <button class="btn-ghost" onclick="fecharPremium(); showModal('modalExtensao');">+ Ver extensão até 999 (+R$5,99)</button>
+      <button class="btn-ghost" onclick="fecharPremium()">Agora não</button>
+    </div>
+  </div>
+</div>
+
+<!-- BALÃO EXTENSÃO PREMIUM -->
+<div id="modalExtensao" class="backdrop" role="dialog" aria-modal="true" aria-labelledby="extensao-title">
+  <div class="alert-card premium">
+    <div class="alert-screen premium-screen">
+      <div class="alert-tag premium-tag">Acima de 250</div>
+      <h2 id="extensao-title">Amplie seu Premium até 999</h2>
+      <p>Seu Premium cobre até 250. Com a extensão, você converte números até 999.</p>
+    </div>
+
+    <div class="plan">
+      <div class="plan-info">
+        <div class="plan-nome">Extensão Premium</div>
+        <div class="plan-desc">Números até 999 • só para quem já é Premium</div>
+      </div>
+      <div class="plan-preco">+R$ 5,99<span>/mês</span></div>
+    </div>
+
+    <div class="voucher-row">
+      <input type="text" id="valeExtensao" class="voucher-input" maxlength="10" placeholder="Vale-presente" aria-label="Código do vale-presente da Extensão">
+      <button class="voucher-btn" onclick="resgatarVale('extensao')">Resgatar</button>
+    </div>
+    <p class="voucher-erro" id="valeExtensaoErro"></p>
+
+    <div class="alert-actions">
+      <button class="btn-primary" onclick="comprarExtensao()">Comprar extensão (+R$5,99)</button>
+      <button class="btn-ghost" onclick="fecharModal('modalExtensao')">Agora não</button>
+    </div>
+  </div>
+</div>
+
+<!-- BALÃO ANUAL -->
+<div id="modalAnual" class="backdrop" role="dialog" aria-modal="true" aria-labelledby="anual-title">
+  <div class="alert-card anual-card">
+    <div class="alert-screen anual-screen">
+      <div class="alert-tag anual-tag-screen">Melhor custo-benefício</div>
+      <h2 id="anual-title">Assine o Anual e economize</h2>
+      <p>Conversões ilimitadas, números sem limite e resposta instantânea — no preço do ano todo.</p>
+    </div>
+
+    <div class="plan">
+      <div class="plan-info">
+        <div class="plan-nome">Anual</div>
+        <div class="plan-desc">Sem limites • ilimitado/dia • instantâneo</div>
+      </div>
+      <div class="plan-preco">
+        <span class="preco-riscado">R$ 500,00</span>
+        R$ 59,90<span>/ano</span>
+      </div>
+    </div>
+
+    <div class="voucher-row">
+      <input type="text" id="valeAnual" class="voucher-input" maxlength="10" placeholder="Vale-presente" aria-label="Código do vale-presente Anual">
+      <button class="voucher-btn" onclick="resgatarVale('anual')">Resgatar</button>
+    </div>
+    <p class="voucher-erro" id="valeAnualErro"></p>
+
+    <div class="alert-actions">
+      <button class="btn-primary" onclick="comprar('Anual')">Assinar Anual</button>
+      <button class="btn-ghost" onclick="fecharModal('modalAnual')">Agora não</button>
+    </div>
+  </div>
+</div>
+
+<!-- BALÃO CONHEÇA NOSSOS PLANOS -->
+<div id="modalPlanos" class="backdrop" role="dialog" aria-modal="true" aria-labelledby="planos-title">
+  <div class="planos-card">
+    <button class="planos-fechar" onclick="fecharModal('modalPlanos')" aria-label="Fechar">✕</button>
+    <h2 id="planos-title" class="planos-titulo">Conheça nossos planos</h2>
+
+    <div class="planos-grid">
+      <div class="plano-item" data-plano="basico" onclick="selecionarPlanoCard(this)">
+        <div class="plano-item-nome">Básico</div>
+        <div class="plano-item-preco">R$ 5,99<span>/mês</span></div>
+        <ul class="plano-beneficios">
+          <li>5 conversões por dia</li>
+          <li>Números até 99</li>
+          <li class="off">Números acima de 99</li>
+          <li>Conversão rápida</li>
+          <li class="off">Resposta instantânea</li>
+        </ul>
+        <button class="btn-secondary-full" onclick="event.stopPropagation(); fecharModal('modalPlanos'); showModal('modalBasico');">Ver plano Básico</button>
+      </div>
+
+      <div class="plano-item destaque" data-plano="premium" onclick="selecionarPlanoCard(this)">
+        <div class="plano-item-tag">Mais popular</div>
+        <div class="plano-item-nome">Premium</div>
+        <div class="plano-item-preco">R$ 9,99<span>/mês</span></div>
+        <ul class="plano-beneficios">
+          <li>10 conversões por dia</li>
+          <li>Números até 250</li>
+          <li>Extensão opcional até 999 (+R$5,99)</li>
+          <li>Conversão mais rápida</li>
+          <li class="off">Resposta instantânea</li>
+        </ul>
+        <button class="btn-primary" onclick="event.stopPropagation(); fecharModal('modalPlanos'); showModal('modalPremium');">Ver plano Premium</button>
+        <button class="btn-ghost" onclick="event.stopPropagation(); fecharModal('modalPlanos'); showModal('modalExtensao');">+ Ver extensão até 999</button>
+      </div>
+
+      <div class="plano-item anual" data-plano="anual" onclick="selecionarPlanoCard(this)">
+        <div class="plano-item-tag anual-tag">Melhor custo-benefício</div>
+        <div class="plano-item-nome">Anual</div>
+        <div class="plano-item-preco">
+          <span class="preco-riscado">R$ 500,00</span>
+          R$ 59,90<span>/ano</span>
+        </div>
+        <ul class="plano-beneficios">
+          <li>Conversões ilimitadas</li>
+          <li>Números sem limite</li>
+          <li>Resposta instantânea</li>
+          <li>Preço fixo no ano todo</li>
+          <li>Economia garantida</li>
+        </ul>
+        <button class="btn-primary" onclick="event.stopPropagation(); fecharModal('modalPlanos'); showModal('modalAnual');">Ver plano Anual</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AD OVERLAY -->
+<div id="adOverlay">
+  <button class="ad-close" id="adCloseBtn">✕</button>
+  <div class="ad-content">
+    <div class="ad-bg" id="adBg"></div>
+    <a class="ad-fg" id="adLink" href="#" target="_blank" rel="noopener noreferrer">
+      <img id="adImg" src="" alt="Anúncio">
+    </a>
+  </div>
+  <div class="ad-timer" id="adTimer">5</div>
+</div>
+
+<script>
+// Cada plano tem seus próprios códigos, sem repetição entre categorias —
+// resgatar um vale de um plano nunca ativa ou libera outro plano.
+const VOUCHERS = {
+  basico: ['BASICO10', 'FREEBIE01', 'TESTEBAS', 'START99'],
+  premium: ['PREMIUM99', 'VIP2025', 'SUPERADM', 'GOLD250'],
+  anual: ['ANUAL2026', 'VIPANUAL', 'ECONOMIZA', 'FIDELANO'],
+  extensao: ['EXT999', 'AMPLIA999', 'MAXNUM']
+};
+
+const PLAN_LIMITS = { free: 2, basico: 5, premium: 10, anual: Infinity };
+const PLAN_DELAY_MS = { free: 3000, basico: 2000, premium: 2000, anual: 0 };
+
+const USED_PASSWORDS = ['SenhaForte1!', 'OutraSenha2@'];
+let loginAttempts = 0;
+let tentativasValidas = 0;
+let tentativasNome = 0;
+
+// Controla o truque de "nome/senha já em uso": guarda o último valor recusado
+// para exigir que a pessoa realmente troque (reenviar o mesmo valor não conta
+// como uma tentativa nova, continua bloqueado) e guarda o valor já aprovado
+// para não repetir o truque à toa quando o valor não muda mais.
+let ultimoNomeRejeitado = null;
+let nomeLiberadoValor = null;
+let ultimaSenhaRejeitada = null;
+let senhaLiberadaValor = null;
+
+const NOMES_ALEATORIOS = [
+  'Carlos', 'Fernanda', 'Bruno', 'Juliana', 'Rafael', 'Aline',
+  'Gustavo', 'Patrícia', 'Diego', 'Camila', 'Thiago', 'Larissa',
+  'Eduardo', 'Renata', 'Felipe', 'Vanessa'
+];
+let nomesJaUsados = [];
+
+function nomeAleatorioUnico() {
+  const disponiveis = NOMES_ALEATORIOS.filter(n => !nomesJaUsados.includes(n));
+  const lista = disponiveis.length ? disponiveis : NOMES_ALEATORIOS;
+  const nome = lista[Math.floor(Math.random() * lista.length)];
+  nomesJaUsados.push(nome);
+  return nome;
+}
+
+let userPlan = null;
+let premiumExtensao = false;
+let perguntas = 0;
+let display = '0';
+let adTimer = 5;
+let adInterval = null;
+let adBlocked = false;
+let adUsed = false;
+let modoAnuncioDigito = false;
+let digitoPendente = null;
+let digitClickCount = 0;
+
+// Cada anúncio tem uma foto e o link do site — ao clicar na imagem, abre o site em nova aba.
+const ANUNCIOS = [
+  { url: 'https://www.amazon.com/', img: 'https://assets.aboutamazon.com/dims4/default/324e099/2147483647/strip/true/crop/1999x1125+1+0/resize/1240x698!/quality/90/?url=https%3A%2F%2Famazon-blogs-brightspot.s3.amazonaws.com%2F28%2Fc2%2F3877bcf54c86a9126a6ed3aa3c9a%2Faa-pd2025-wrap-standard-hero-v5-600kb-2000x1125.jpg' },
+  { url: 'https://www.tiktok.com/pt-BR/', img: 'https://static.dinamize.com.br/dinamizeszmsdg3x/uploads/2024/06/TikTok-Ads-1-min.png' },
+  { url: 'https://www.instagram.com/', img: 'https://play-lh.googleusercontent.com/YXWpsW1uMNHOIlGh5tqOfHdEpppAuaDyQUfkcYPWqGmFugaYCte8jn7k6amCfVlGGJoRUmfl7WR7rbULS3OJNn0=w526-h296-rw' },
+  { url: 'https://shopee.com.br/', img: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSyuDFmY_5rJz0MTI1RpuafF6Ci1JHOPK1svexcx3zGdXx8wjUc7pKIa2w&s=1600' },
+  { url: 'https://www.olx.com.br/', img: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShJiQR0x7Z8L73vd8KyxEmNR32TTc7YjW_URQBzLG3TSen0W7SK_sq_DY&s=1600' },
+  { url: 'https://www.ingresso.com/', img: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScRhJuzgVa7SH4_56fwW3eogiV2fqLMraEJMxXCkqNmofUJ9DwDUDHIhn8&s=1600' }
+];
+let ultimoAnuncioIndex = -1;
+
+function sortearAnuncio() {
+  let indice;
+  do {
+    indice = Math.floor(Math.random() * ANUNCIOS.length);
+  } while (ANUNCIOS.length > 1 && indice === ultimoAnuncioIndex);
+  ultimoAnuncioIndex = indice;
+
+  const anuncio = ANUNCIOS[indice];
+  document.getElementById('adImg').src = anuncio.img;
+  document.getElementById('adBg').style.backgroundImage = `url("${anuncio.img}")`;
+  document.getElementById('adLink').href = anuncio.url;
+}
+
+const screenNumber = document.getElementById('screenNumber');
+const screenExtenso = document.getElementById('screenExtenso');
+const dots = document.querySelectorAll('.dot');
+const clearBtn = document.getElementById('clearBtn');
+const convertBtn = document.getElementById('convertBtn');
+const loginGate = document.getElementById('loginGate');
+const app = document.getElementById('app');
+const loginNome = document.getElementById('loginNome');
+const loginSenha = document.getElementById('loginSenha');
+const loginErro = document.getElementById('loginErro');
+const toggleSenha = document.getElementById('toggleSenha');
+const btnAnuncio = document.getElementById('btnAnuncio');
+const btnConhecaPlanos = document.getElementById('btnConhecaPlanos');
+const perfilNome = document.getElementById('perfilNome');
+const perfilBolinha = document.getElementById('perfilBolinha');
+
+function atualizarDisplay() {
+  screenNumber.textContent = display;
+  screenNumber.classList.remove('pulse');
+  void screenNumber.offsetWidth;
+  screenNumber.classList.add('pulse');
+}
+
+function escreverExtenso(texto) {
+  if (!texto) {
+    screenExtenso.textContent = '';
+    screenExtenso.classList.remove('show');
+    return;
+  }
+
+  screenExtenso.innerHTML = texto
+    .split(' ')
+    .map(palavra => `<span class="word">${palavra}</span>`)
+    .join(' ');
+
+  screenExtenso.classList.remove('show');
+  requestAnimationFrame(() => screenExtenso.classList.add('show'));
+}
+
+function atualizarDots() {
+  dots.forEach((dot, index) => {
+    dot.classList.toggle('used', index < Math.min(perguntas, 3));
+  });
+}
+
+function showModal(id) {
+  document.querySelectorAll('.backdrop').forEach(el => el.classList.remove('show'));
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.add('show');
+  if (id === 'modalOpcoes') {
+    btnAnuncio.disabled = adUsed;
+    btnAnuncio.textContent = adUsed
+      ? 'Anúncio já assistido hoje'
+      : '▶ Assistir anúncio (+1 grátis)';
+  }
+}
+
+function fecharModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.remove('show');
+}
+
+function resetConversionState() {
+  perguntas = 0;
+  atualizarDots();
+}
+
+function appendDigit(d) {
+  if (display === '0') {
+    display = d;
+  } else if (display.length < 12) {
+    display += d;
+  }
+  atualizarDisplay();
+}
+
+function limparDisplay() {
+  display = '0';
+  atualizarDisplay();
+  screenExtenso.textContent = '';
+  screenExtenso.classList.remove('show');
+}
+
+function tryConvert() {
+  const numero = Number(display);
+  if (Number.isNaN(numero)) {
+    escreverExtenso('Número inválido');
+    return;
+  }
+
+  const planoAtual = userPlan || 'free';
+
+  if (planoAtual === 'anual') {
+    // sem limite de tamanho de número
+  } else if (planoAtual === 'premium') {
+    const limitePremium = premiumExtensao ? 999 : 250;
+    if (numero > limitePremium) {
+      if (!premiumExtensao && numero <= 999) {
+        showModal('modalExtensao');
+      } else {
+        showModal('modalAnual');
+      }
+      return;
+    }
+  } else if (planoAtual === 'basico') {
+    if (numero > 99) {
+      showModal('modalPremium');
+      return;
+    }
+  } else {
+    if (numero > 99) {
+      showModal('modalBasico');
+      return;
+    }
+  }
+
+  if (perguntas >= PLAN_LIMITS[planoAtual]) {
+    showModal('modalOpcoes');
+    return;
+  }
+
+  perguntas += 1;
+  atualizarDots();
+
+  const atraso = PLAN_DELAY_MS[planoAtual];
+  escreverExtenso('');
+  convertBtn.disabled = true;
+  setTimeout(() => {
+    escreverExtenso(numeroPorExtenso(numero));
+    convertBtn.disabled = false;
+  }, atraso);
+}
+
+function pagarAvulso() {
+  alert('Compra avulsa ainda não disponível.');
+}
+
+function verPlanos() {
+  fecharOpcoes();
+  showModal('modalPlanos');
+}
+
+function fecharOpcoes() {
+  fecharModal('modalOpcoes');
+}
+
+function fecharBasico() {
+  fecharModal('modalBasico');
+}
+
+function fecharPremium() {
+  fecharModal('modalPremium');
+}
+
+function comprar(plano) {
+  if (plano === 'Básico') {
+    alert('Pagamento do Básico ainda não está disponível. Use um código de vale-presente para ativar o plano.');
+  } else if (plano === 'Premium') {
+    alert('Pagamento do Premium ainda não está disponível. Use um código de vale-presente para ativar o plano.');
+  } else if (plano === 'Anual') {
+    alert('Pagamento do Anual ainda não está disponível. Use um código de vale-presente para ativar o plano.');
+  }
+}
+
+function comprarExtensao() {
+  if (userPlan !== 'premium') {
+    alert('Você precisa ter o Premium para comprar essa extensão.');
+    return;
+  }
+  alert('Pagamento da extensão ainda não está disponível. Use um código de vale-presente para ativá-la.');
+}
+
+function resgatarVale(tipo) {
+  const inputIds = { basico: 'valeBasico', premium: 'valePremium', anual: 'valeAnual', extensao: 'valeExtensao' };
+  const erroIds = { basico: 'valeBasicoErro', premium: 'valePremiumErro', anual: 'valeAnualErro', extensao: 'valeExtensaoErro' };
+  const nomes = { basico: 'Básico', premium: 'Premium', anual: 'Anual', extensao: 'Extensão Premium' };
+
+  const input = document.getElementById(inputIds[tipo]);
+  const erro = document.getElementById(erroIds[tipo]);
+  const codigo = input.value.trim().toUpperCase();
+
+  if (!codigo) {
+    erro.textContent = 'Digite um código.';
+    return;
+  }
+
+  if (tipo === 'extensao' && userPlan !== 'premium') {
+    erro.textContent = 'Você precisa ter o Premium para usar esse código.';
+    return;
+  }
+
+  const validos = VOUCHERS[tipo];
+  if (validos.includes(codigo)) {
+    erro.textContent = '';
+    if (tipo === 'extensao') {
+      premiumExtensao = true;
+      alert('🎉 Extensão Premium ativada! Agora você converte números até 999.');
+    } else {
+      userPlan = tipo;
+      alert(`🎉 Plano ${nomes[tipo]} ativado com sucesso!`);
+    }
+    fecharBasico();
+    fecharPremium();
+    fecharModal('modalAnual');
+    fecharModal('modalExtensao');
+    fecharOpcoes();
+    resetConversionState();
+    const numero = Number(display);
+    escreverExtenso(numeroPorExtenso(numero));
+  } else {
+    erro.textContent = 'Código inválido. Tente novamente.';
+  }
+}
+
+function showAd() {
+  sortearAnuncio();
+  const overlay = document.getElementById('adOverlay');
+  overlay.classList.add('show');
+  adBlocked = false;
+  adTimer = 5;
+  document.getElementById('adTimer').textContent = adTimer;
+
+  if (adInterval) clearInterval(adInterval);
+  adInterval = setInterval(() => {
+    adTimer -= 1;
+    document.getElementById('adTimer').textContent = adTimer;
+    if (adTimer <= 0) {
+      clearInterval(adInterval);
+      adInterval = null;
+      closeAd(true);
+    }
+  }, 1000);
+}
+
+function closeAd(granted) {
+  const overlay = document.getElementById('adOverlay');
+  overlay.classList.remove('show');
+  if (adInterval) {
+    clearInterval(adInterval);
+    adInterval = null;
+  }
+
+  // Anúncio disparado por clique em número: só completa o dígito pendente,
+  // sem mexer nas regras do anúncio bônus (perguntas, adUsed, etc).
+  if (modoAnuncioDigito) {
+    modoAnuncioDigito = false;
+    if (digitoPendente !== null) {
+      appendDigit(digitoPendente);
+      digitoPendente = null;
+    }
+    return;
+  }
+
+  if (granted && !adBlocked) {
+    adUsed = true;
+    perguntas = Math.max(0, perguntas - 1);
+    atualizarDots();
+    const numero = Number(display);
+    if (!Number.isNaN(numero)) {
+      escreverExtenso(numeroPorExtenso(numero));
+    }
+    alert('✅ Anúncio assistido! Você ganhou mais uma conversão grátis.');
+  }
+}
+
+function mostrarAnuncioParaDigito(d) {
+  digitoPendente = d;
+  modoAnuncioDigito = true;
+  showAd();
+}
+
+document.getElementById('adCloseBtn').addEventListener('click', function() {
+  if (modoAnuncioDigito) {
+    closeAd(false);
+    return;
+  }
+  if (adTimer > 0 && adTimer <= 5) {
+    adBlocked = true;
+    clearInterval(adInterval);
+    adInterval = null;
+    closeAd(false);
+    window.open('https://shopee.com.br', '_blank');
+  } else {
+    closeAd(true);
+  }
+});
+
+document.querySelectorAll('.key[data-d]').forEach(button => {
+  button.addEventListener('click', () => {
+    if (digitClickCount < 2) {
+      appendDigit(button.dataset.d);
+      digitClickCount += 1;
+      return;
+    }
+    mostrarAnuncioParaDigito(button.dataset.d);
+  });
+});
+
+clearBtn.addEventListener('click', limparDisplay);
+convertBtn.addEventListener('click', tryConvert);
+btnAnuncio.addEventListener('click', () => {
+  if (adUsed) {
+    alert('Você já assistiu ao anúncio disponível. Só é permitido 1 anúncio.');
+    return;
+  }
+  fecharOpcoes();
+  showAd();
+});
+
+btnConhecaPlanos.addEventListener('click', () => showModal('modalPlanos'));
+
+function selecionarPlanoCard(el) {
+  document.querySelectorAll('.plano-item').forEach(item => item.classList.remove('selecionado'));
+  el.classList.add('selecionado');
+}
+
+toggleSenha.addEventListener('click', () => {
+  const type = loginSenha.type === 'password' ? 'text' : 'password';
+  loginSenha.type = type;
+  toggleSenha.textContent = type === 'password' ? '👁' : '🙈';
+});
+
+function atualizarRegras() {
+  const senha = loginSenha.value;
+  const regras = {
+    tamanho: senha.length >= 8,
+    maiuscula: /[A-Z]/.test(senha),
+    numero: /[0-9]/.test(senha),
+    especial: /[^A-Za-z0-9]/.test(senha)
+  };
+
+  Object.keys(regras).forEach(chave => {
+    const item = document.getElementById(`regra-${chave}`);
+    if (item) {
+      item.classList.toggle('ok', regras[chave]);
+    }
+  });
+}
+
+loginSenha.addEventListener('input', atualizarRegras);
+
+function mostrarErroLogin(mensagem) {
+  loginErro.classList.remove('show');
+  // força reflow para o shake reiniciar mesmo se a mensagem já estava visível
+  void loginErro.offsetWidth;
+  loginErro.textContent = mensagem;
+  loginErro.classList.add('show');
+}
+
+// Verifica o nome digitado usando o truque de "já está em uso".
+// Retorna true se o nome pode passar, false se precisa ser trocado.
+// Reaproveitada tanto ao sair do campo de nome (blur) quanto no clique de login.
+function checarNome(nomeDigitado) {
+  const nome = nomeDigitado.trim();
+  if (!nome) return null; // campo vazio é tratado separadamente
+
+  if (nome === nomeLiberadoValor) {
+    return true; // esse nome específico já passou pelo truque
+  }
+
+  if (nome === ultimoNomeRejeitado) {
+    mostrarErroLogin(`Esse nome ainda está em uso. Digite um nome diferente de "${nome}".`);
+    return false;
+  }
+
+  // Nome novo (diferente do último recusado) — conta como nova tentativa.
+  tentativasNome += 1;
+  if (tentativasNome <= 2) {
+    ultimoNomeRejeitado = nome;
+    mostrarErroLogin(`Erro: o nome "${nome}" já está sendo usado. Tente outro nome.`);
+    return false;
+  }
+
+  // 3ª tentativa com um nome realmente diferente da última recusa: aprova.
+  nomeLiberadoValor = nome;
+  ultimoNomeRejeitado = null;
+  return true;
+}
+
+loginNome.addEventListener('blur', () => {
+  // Mostra o aviso assim que a pessoa termina de digitar o nome e sai do
+  // campo (por exemplo, ao clicar no campo de senha em seguida).
+  checarNome(loginNome.value);
+});
+
+loginBtn.addEventListener('click', () => {
+  const nome = loginNome.value.trim();
+  const senha = loginSenha.value;
+  const regrasValidas = [
+    senha.length >= 8,
+    /[A-Z]/.test(senha),
+    /[0-9]/.test(senha),
+    /[^A-Za-z0-9]/.test(senha)
+  ];
+
+  loginAttempts += 1;
+
+  if (!nome) {
+    mostrarErroLogin('Informe seu nome para continuar.');
+    return;
+  }
+
+  // Enquanto a senha não tiver 8+ caracteres, 1 maiúscula, 1 número e
+  // 1 caractere especial, o login fica bloqueado — isso vale sempre,
+  // não importa quantas vezes a pessoa tentar.
+  if (regrasValidas.some(valor => !valor)) {
+    mostrarErroLogin('A senha precisa ter 8 caracteres, 1 letra maiúscula, 1 número e 1 caractere especial.');
+    return;
+  }
+
+  // Normalmente esse aviso já apareceu ao sair do campo de nome (blur), mas
+  // reaproveita a mesma checagem aqui como garantia (ex.: autofill, Enter).
+  if (checarNome(nome) === false) {
+    return;
+  }
+
+  // Senha: mesmo truque, mas exige que a pessoa realmente troque a senha —
+  // reenviar a mesma senha recusada continua bloqueado, não avança sozinho.
+  if (senha === senhaLiberadaValor) {
+    // essa senha específica já passou pelo truque, segue o fluxo normal
+  } else if (senha === ultimaSenhaRejeitada) {
+    mostrarErroLogin('Essa senha já foi recusada. Escolha uma senha diferente da anterior.');
+    return;
+  } else {
+    tentativasValidas += 1;
+    if (tentativasValidas <= 2) {
+      ultimaSenhaRejeitada = senha;
+      const nomeAviso = nomeAleatorioUnico();
+      mostrarErroLogin(`Erro: o usuário ${nomeAviso} já está usando essa senha. Escolha outra senha.`);
+      return;
+    }
+
+    if (USED_PASSWORDS.includes(senha)) {
+      ultimaSenhaRejeitada = senha;
+      const nomeAviso = nomeAleatorioUnico();
+      mostrarErroLogin(`Erro: o usuário ${nomeAviso} já está usando essa senha. Escolha outra senha.`);
+      return;
+    }
+
+    senhaLiberadaValor = senha;
+  }
+
+  loginErro.textContent = '';
+  loginErro.classList.remove('show');
+  loginGate.style.display = 'none';
+  app.classList.remove('hidden-app');
+  perfilNome.textContent = nome;
+  perfilBolinha.textContent = nome.charAt(0).toUpperCase();
+  display = '0';
+  atualizarDisplay();
+});
+
+function numeroPorExtenso(numero) {
+  const unidades = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+  const especiais = ['dez', 'onze', 'doze', 'treze', 'catorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+  const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+
+  if (numero === 0) return 'zero';
+  if (numero === 100) return 'cem';
+
+  function formatBelowThousand(value) {
+    let texto = [];
+    const c = Math.floor(value / 100);
+    const resto = value % 100;
+
+    if (c > 0) {
+      texto.push(centenas[c]);
+    }
+
+    if (resto > 0) {
+      if (c > 0) texto.push('e');
+      if (resto < 10) {
+        texto.push(unidades[resto]);
+      } else if (resto < 20) {
+        texto.push(especiais[resto - 10]);
+      } else {
+        const d = Math.floor(resto / 10);
+        const u = resto % 10;
+        texto.push(dezenas[d]);
+        if (u > 0) texto.push('e', unidades[u]);
+      }
+    }
+
+    return texto.join(' ');
+  }
+
+  if (numero < 1000) {
+    return formatBelowThousand(numero);
+  }
+
+  const milhares = Math.floor(numero / 1000);
+  const resto = numero % 1000;
+  let resultado = [];
+
+  if (milhares === 1) {
+    resultado.push('mil');
+  } else {
+    resultado.push(formatBelowThousand(milhares), 'mil');
+  }
+
+  if (resto > 0) {
+    if (resto < 100) resultado.push('e');
+    resultado.push(formatBelowThousand(resto));
+  }
+
+  return resultado.join(' ');
+}
+
+const bgLight = document.getElementById('bgLight');
+let mouseX = window.innerWidth / 2;
+let mouseY = window.innerHeight / 2;
+let bgX = mouseX;
+let bgY = mouseY;
+
+document.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+function animarLuzFundo() {
+  // interpolação (lerp) suave: a luz "persegue" o cursor em vez de saltar até ele
+  bgX += (mouseX - bgX) * 0.055;
+  bgY += (mouseY - bgY) * 0.055;
+  const dx = bgX - window.innerWidth / 2;
+  const dy = bgY - window.innerHeight / 2;
+  bgLight.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+  requestAnimationFrame(animarLuzFundo);
+}
+const prefereMenosMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (!prefereMenosMovimento) {
+  requestAnimationFrame(animarLuzFundo);
+}
+
+atualizarDisplay();
+</script>
+</body>
+</html>
